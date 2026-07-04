@@ -7,10 +7,12 @@ def test_burger_initial_state(burger):
     assert burger.bun is None
     assert burger.ingredients == []
     
+    
 def test_set_buns(burger, mock_bun):
     """Проверяем, что метод set_buns правильно устанавливает булку."""
     burger.set_buns(mock_bun)
     assert burger.bun == mock_bun
+    
     
 @pytest.mark.parametrize("count", [1, 3])
 def test_add_ingredient(burger, mock_ingredient, count):
@@ -20,6 +22,7 @@ def test_add_ingredient(burger, mock_ingredient, count):
     assert len(burger.ingredients) == count
     for ing in burger.ingredients:
         assert ing == mock_ingredient
+
 
 @pytest.mark.parametrize("index, expected_list", [
     (0, ["second", "third"]),   # удаляем первый
@@ -51,3 +54,36 @@ def test_remove_ingredient_invalid_index(burger, ingredient_factory):
     
     with pytest.raises(IndexError):
         burger.remove_ingredient(10)   # индекс вне диапазона
+
+       
+@pytest.mark.parametrize("index, new_index, expected_order", [
+    (0, 1, ["second", "first", "third"]),      # перемещаем первый на второе место
+    (1, 0, ["second", "first", "third"]),      # перемещаем второй на первое место
+    (2, 0, ["third", "first", "second"]),      # перемещаем последний на первое место
+    (0, 0, ["first", "second", "third"]),      # перемещаем на ту же позицию (без изменений)
+])
+def test_move_ingredient_valid(burger, ingredient_factory, index, new_index, expected_order):
+    """Проверяем корректное перемещение ингредиента."""
+    # Создаём три ингредиента с разными именами
+    ing1 = ingredient_factory(name="first")
+    ing2 = ingredient_factory(name="second")
+    ing3 = ingredient_factory(name="third")
+    
+    burger.add_ingredient(ing1)
+    burger.add_ingredient(ing2)
+    burger.add_ingredient(ing3)
+    
+    # Перемещаем
+    burger.move_ingredient(index, new_index)
+    
+    # Проверяем порядок имён
+    order = [ing.get_name() for ing in burger.ingredients]
+    assert order == expected_order
+
+
+def test_move_ingredient_invalid_index(burger, ingredient_factory):
+    """Проверяем, что при невалидном index возникает IndexError."""
+    burger.add_ingredient(ingredient_factory(name="only_one"))
+    
+    with pytest.raises(IndexError):
+        burger.move_ingredient(10, 0)   # index вне диапазона 
