@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import Mock
 from praktikum.burger import Burger
 
 
@@ -107,5 +108,46 @@ def test_get_price(burger, bun_factory, ingredient_factory, bun_price, ingredien
         ing = ingredient_factory(price=price)
         burger.add_ingredient(ing)
 
-    # Проверяем итоговую цену (используем approx для float)
+    # Проверяем итоговую цену
     assert burger.get_price() == pytest.approx(expected)
+    
+    
+def test_get_receipt(burger, bun_factory, ingredient_factory):
+    """Проверяем формирование чека с ингредиентами."""
+    bun = bun_factory(name="black bun", price=100)
+    ing1 = ingredient_factory(ingredient_type="sauce", name="hot sauce", price=50)
+    ing2 = ingredient_factory(ingredient_type="filling", name="cutlet", price=80)
+    
+    burger.set_buns(bun)
+    burger.add_ingredient(ing1)
+    burger.add_ingredient(ing2)
+    
+    # Мокаем get_price, чтобы не дублировать логику расчёта (она уже протестирована)
+    burger.get_price = Mock(return_value=330.0)
+    
+    expected_receipt = (
+        "(==== black bun ====)\n"
+        "= sauce hot sauce =\n"
+        "= filling cutlet =\n"
+        "(==== black bun ====)\n"
+        "\n"
+        "Price: 330.0"
+    )
+    
+    assert burger.get_receipt() == expected_receipt
+
+
+def test_get_receipt_no_ingredients(burger, bun_factory):
+    """Проверяем чек без ингредиентов."""
+    bun = bun_factory(name="white bun", price=50)
+    burger.set_buns(bun)
+    burger.get_price = Mock(return_value=100.0)
+    
+    expected_receipt = (
+        "(==== white bun ====)\n"
+        "(==== white bun ====)\n"
+        "\n"
+        "Price: 100.0"
+    )
+    
+    assert burger.get_receipt() == expected_receipt
