@@ -3,13 +3,13 @@ from pathlib import Path
 from typing import Callable
 from unittest.mock import Mock
 
-# Добавляем корневую папку проекта в sys.path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
 from praktikum.burger import Burger
 from praktikum.bun import Bun
 from praktikum.ingredient import Ingredient
+from .test_data import INGREDIENT_NAMES
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def mock_ingredient() -> Mock:
 def ingredient_factory() -> Callable[..., Mock]:
     """
     Фабрика для создания моков Ingredient с произвольными параметрами.
-    Возвращает функцию, которая принимает type, name, price и возвращает мок.
+    Возвращает функцию, которая принимает ingredient_type, name, price и возвращает мок.
     """
     def _create_ingredient(ingredient_type: str = "sauce",
                            name: str = "custom sauce",
@@ -68,12 +68,9 @@ def bun_factory() -> Callable[..., Mock]:
 @pytest.fixture
 def burger_with_three_ingredients(burger: Burger, ingredient_factory: Callable) -> Burger:
     """
-    Возвращает бургер с тремя ингредиентами с именами 'first', 'second', 'third'.
+    Возвращает бургер с тремя ингредиентами, имена берутся из test_data.
     """
-    ing1 = ingredient_factory(name="first")
-    ing2 = ingredient_factory(name="second")
-    ing3 = ingredient_factory(name="third")
-    burger.add_ingredient(ing1)
-    burger.add_ingredient(ing2)
-    burger.add_ingredient(ing3)
+    for name in INGREDIENT_NAMES:
+        ing = ingredient_factory(name=name)
+        burger.add_ingredient(ing)
     return burger
