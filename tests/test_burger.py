@@ -1,0 +1,168 @@
+import pytest
+from unittest.mock import Mock
+from praktikum.burger import Burger
+from .test_data import INGREDIENT_NAMES
+
+
+class TestBurger:
+    # ---------- Тесты для __init__ ----------
+    def test_burger_initial_state(self, burger: Burger) -> None:
+        """Проверяем, что при создании бургера булка равна None, а список ингредиентов пуст."""
+        assert burger.bun is None
+        assert burger.ingredients == []
+
+    # ---------- Тесты для set_buns ----------
+    def test_set_buns(self, burger: Burger, mock_bun: Mock) -> None:
+        """Проверяем, что метод set_buns правильно устанавливает булку."""
+        burger.set_buns(mock_bun)
+        assert burger.bun == mock_bun
+
+    # ---------- Тесты для add_ingredient ----------
+    @pytest.mark.parametrize("count", [1, 3])
+    def test_add_ingredient(self, burger: Burger, mock_ingredient: Mock, count: int) -> None:
+        """Проверяем добавление одного и нескольких ингредиентов."""
+        for _ in range(count):
+            burger.add_ingredient(mock_ingredient)
+        assert len(burger.ingredients) == count
+        for ing in burger.ingredients:
+            assert ing == mock_ingredient
+
+    # ---------- Тесты для remove_ingredient ----------
+    @pytest.mark.parametrize("index, expected_names", [
+        (0, INGREDIENT_NAMES[1:]),
+        (1, [INGREDIENT_NAMES[0], INGREDIENT_NAMES[2]]),
+        (2, INGREDIENT_NAMES[:2]),
+    ])
+    def test_remove_ingredient_valid(self, burger_with_three_ingredients: Burger, index: int, expected_names: list) -> None:
+        """Проверяем удаление ингредиента по валидному индексу (первый, средний, последний)."""
+        burger = burger_with_three_ingredients
+        burger.remove_ingredient(index)
+        remaining_names = [ing.get_name() for ing in burger.ingredients]
+        assert remaining_names == expected_names
+
+    def test_remove_ingredient_invalid_index(self, burger: Burger, ingredient_factory) -> None:
+        """Проверяем, что при невалидном индексе возникает IndexError."""
+        burger.add_ingredient(ingredient_factory(name="only_one"))
+        with pytest.raises(IndexError):
+            burger.remove_ingredient(10)
+
+    def test_remove_ingredient_negative_valid(self, burger_with_three_ingredients: Burger) -> None:
+        """Удаление последнего элемента через индекс -1."""
+        burger_with_three_ingredients.remove_ingredient(-1)
+        names = [ing.get_name() for ing in burger_with_three_ingredients.ingredients]
+        assert names == INGREDIENT_NAMES[:2]
+
+    def test_remove_ingredient_negative_invalid(self, burger_with_three_ingredients: Burger) -> None:
+        """Отрицательный индекс вне диапазона -> IndexError."""
+        with pytest.raises(IndexError):
+            burger_with_three_ingredients.remove_ingredient(-4)
+
+    # ---------- Тесты для move_ingredient ----------
+    @pytest.mark.parametrize("index, new_index, expected_indices", [
+        (0, 1, [1, 0, 2]),
+        (1, 0, [1, 0, 2]),
+        (2, 0, [2, 0, 1]),
+        (0, 0, [0, 1, 2]),
+    ])
+    def test_move_ingredient_valid(self, burger_with_three_ingredients: Burger, index: int, new_index: int, expected_indices: list) -> None:
+        """Проверяем корректное перемещение ингредиента (разные комбинации)."""
+        burger = burger_with_three_ingredients
+        burger.move_ingredient(index, new_index)
+        order = [ing.get_name() for ing in burger.ingredients]
+        expected_names = [INGREDIENT_NAMES[i] for i in expected_indices]
+        assert order == expected_names
+
+    def test_move_ingredient_invalid_index(self, burger: Burger, ingredient_factory) -> None:
+        """Проверяем, что при невалидном index возникает IndexError."""
+        burger.add_ingredient(ingredient_factory(name="only_one"))
+        with pytest.raises(IndexError):
+            burger.move_ingredient(10, 0)
+
+    def test_move_ingredient_negative_index(self, burger_with_three_ingredients: Burger) -> None:
+        """Перемещение с отрицательным валидным индексом."""
+        burger_with_three_ingredients.move_ingredient(-1, 0)
+        names = [ing.get_name() for ing in burger_with_three_ingredients.ingredients]
+        assert names == [INGREDIENT_NAMES[2], INGREDIENT_NAMES[0], INGREDIENT_NAMES[1]]
+
+    def test_move_ingredient_negative_new_index(self, burger_with_three_ingredients: Burger) -> None:
+        """Перемещение с отрицательным new_index (вставка перед элементом с конца)."""
+        burger_with_three_ingredients.move_ingredient(0, -1)
+        names = [ing.get_name() for ing in burger_with_three_ingredients.ingredients]
+        assert names == [INGREDIENT_NAMES[1], INGREDIENT_NAMES[0], INGREDIENT_NAMES[2]]
+
+    def test_move_ingredient_new_index_beyond_length(self, burger_with_three_ingredients: Burger) -> None:
+        """new_index больше длины списка → элемент вставляется в конец."""
+        burger_with_three_ingredients.move_ingredient(0, 10)
+        names = [ing.get_name() for ing in burger_with_three_ingredients.ingredients]
+        assert names == [INGREDIENT_NAMES[1], INGREDIENT_NAMES[2], INGREDIENT_NAMES[0]]
+
+    # ---------- Тесты для get_price ----------
+    @pytest.mark.parametrize("bun_price, ingredient_prices, expected", [
+        (10, [15, 20], 55),
+        (5, [10, 5], 25),
+        (0, [], 0),
+        (3.5, [1.1, 2.2], 10.3),
+        (100, [50, 60, 70], 380),
+    ])
+    def test_get_price(self, burger: Burger, bun_factory, ingredient_factory, bun_price: float, ingredient_prices: list, expected: float) -> None:
+        """Проверяем расчёт цены бургера."""
+        bun = bun_factory(price=bun_price)
+        burger.set_buns(bun)
+        for price in ingredient_prices:
+            ing = ingredient_factory(price=price)
+            burger.add_ingredient(ing)
+        assert burger.get_price() == pytest.approx(expected)
+
+    # ---------- Тесты для get_receipt ----------
+    def test_get_receipt(self, burger: Burger, bun_factory, ingredient_factory) -> None:
+        """Проверяем формирование чека с ингредиентами."""
+        bun = bun_factory(name="black bun", price=100)
+        ing1 = ingredient_factory(ingredient_type="sauce", name="hot sauce", price=50)
+        ing2 = ingredient_factory(ingredient_type="filling", name="cutlet", price=80)
+
+        burger.set_buns(bun)
+        burger.add_ingredient(ing1)
+        burger.add_ingredient(ing2)
+
+        burger.get_price = Mock(return_value=330.0)
+
+        expected_receipt = (
+            "(==== black bun ====)\n"
+            "= sauce hot sauce =\n"
+            "= filling cutlet =\n"
+            "(==== black bun ====)\n"
+            "\n"
+            "Price: 330.0"
+        )
+        assert burger.get_receipt() == expected_receipt
+
+    def test_get_receipt_no_ingredients(self, burger: Burger, bun_factory) -> None:
+        """Проверяем чек без ингредиентов."""
+        bun = bun_factory(name="white bun", price=50)
+        burger.set_buns(bun)
+        burger.get_price = Mock(return_value=100.0)
+
+        expected_receipt = (
+            "(==== white bun ====)\n"
+            "(==== white bun ====)\n"
+            "\n"
+            "Price: 100.0"
+        )
+        assert burger.get_receipt() == expected_receipt
+
+    def test_get_receipt_one_ingredient(self, burger: Burger, bun_factory, ingredient_factory) -> None:
+        """Граничный случай: один ингредиент."""
+        bun = bun_factory(name="red bun", price=50)
+        ing = ingredient_factory(ingredient_type="sauce", name="ketchup", price=30)
+        burger.set_buns(bun)
+        burger.add_ingredient(ing)
+        burger.get_price = Mock(return_value=130.0)
+
+        expected = (
+            "(==== red bun ====)\n"
+            "= sauce ketchup =\n"
+            "(==== red bun ====)\n"
+            "\n"
+            "Price: 130.0"
+        )
+        assert burger.get_receipt() == expected
